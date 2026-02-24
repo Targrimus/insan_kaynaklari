@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Button, Card, Container, Row, Col, Alert, Tabs, Tab, Spinner } from 'react-bootstrap';
+import { Form, Button, Card, Container, Row, Col, Alert, Tabs, Tab, Spinner, Accordion } from 'react-bootstrap';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaUpload, FaFileAlt } from 'react-icons/fa';
 
 const PersonelGuncelle = () => {
 	const { id } = useParams();
@@ -101,8 +101,20 @@ const PersonelGuncelle = () => {
 						telefonNumarasi: '',
 						adres: { il: '', ilce: '', sokak: '', disKapiNo: '', icKapiNo: '', numarataj: '' },
 					},
-					engellilikDurumu: data.engellilikDurumu || { engelNedeni: '', engelDerecesi: '' },
+					telefonNumaralari:
+						data.telefonNumaralari?.length > 0
+							? data.telefonNumaralari
+							: data.telefonNumarasi
+								? [{ tip: 'Şahsi', numara: data.telefonNumarasi, kisaKod: '' }]
+								: [{ tip: 'Şahsi', numara: '', kisaKod: '' }],
 					epostaAdresleri: data.epostaAdresleri?.length > 0 ? data.epostaAdresleri : [''],
+					gorevDegisiklikleri: data.gorevDegisiklikleri
+						? data.gorevDegisiklikleri.map((g) => ({
+								...g,
+								degisiklikTarihi: g.degisiklikTarihi ? g.degisiklikTarihi.substring(0, 10) : '',
+							}))
+						: [],
+					degisiklikGecmisi: data.degisiklikGecmisi || [],
 				};
 				setFormData(formatData);
 				setLoading(false);
@@ -166,6 +178,58 @@ const PersonelGuncelle = () => {
 		setFormData({ ...formData, [field]: newArray });
 	};
 
+	const handleFileUpload = async (field, index, subField, file, kategori) => {
+		if (!file) return;
+		const uploadData = new FormData();
+		uploadData.append('file', file);
+		uploadData.append('personelId', id || 'new');
+		uploadData.append('kategori', kategori);
+
+		try {
+			const res = await axios.post('http://localhost:5000/api/upload', uploadData, {
+				headers: { 'Content-Type': 'multipart/form-data' },
+			});
+			handleArrayChange(field, index, subField, res.data.filePath);
+			alert('Dosya başarıyla yüklendi.');
+		} catch (error) {
+			console.error('Yükleme hatası:', error);
+			alert('Dosya yüklenirken bir hata oluştu.');
+		}
+	};
+
+	const handleGorevDegisikligiEkle = () => {
+		setFormData((prev) => ({
+			...prev,
+			gorevDegisiklikleri: [
+				...(prev.gorevDegisiklikleri || []),
+				{
+					oncekiUnvan: prev.unvani || '',
+					oncekiSirket: prev.gorevAldigiSirket || '',
+					oncekiSube: prev.gorevAldigiSube || '',
+					yeniUnvan: '',
+					yeniSirket: '',
+					yeniSube: '',
+					degisiklikTarihi: new Date().toISOString().substring(0, 10),
+				},
+			],
+		}));
+	};
+
+	const handleGorevDegisikligiChange = (idx, field, value) => {
+		const newArray = [...(formData.gorevDegisiklikleri || [])];
+		newArray[idx][field] = value;
+
+		let extraUpdates = {};
+		// Sadece son eklenen değişiklik ise güncel bilgileri değiştirsin
+		if (idx === newArray.length - 1) {
+			if (field === 'yeniUnvan') extraUpdates.unvani = value;
+			if (field === 'yeniSirket') extraUpdates.gorevAldigiSirket = value;
+			if (field === 'yeniSube') extraUpdates.gorevAldigiSube = value;
+		}
+
+		setFormData({ ...formData, gorevDegisiklikleri: newArray, ...extraUpdates });
+	};
+
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setHata('');
@@ -202,7 +266,7 @@ const PersonelGuncelle = () => {
 	}
 
 	return (
-		<Container fluid>
+		<Container className='py-4'>
 			<Card className='shadow-sm border-0 mb-5'>
 				<Card.Header className='bg-warning py-3'>
 					<h4 className='mb-0 fw-bold text-dark border-start border-4 border-dark ps-2'>Personel Güncelle</h4>
@@ -225,8 +289,15 @@ const PersonelGuncelle = () => {
 										) : (
 											<div
 												className='bg-secondary text-white d-flex align-items-center justify-content-center rounded-circle mx-auto'
-												style={{ width: '100px', height: '100px' }}>
-												Foto Yok
+												style={{
+													width: '100px',
+													height: '100px',
+													fontSize: '2rem',
+													fontWeight: 'bold',
+												}}>
+												{formData.ad || formData.soyad
+													? `${formData.ad.charAt(0).toUpperCase()}${formData.soyad.charAt(0).toUpperCase()}`
+													: 'Yok'}
 											</div>
 										)}
 									</Col>
@@ -337,15 +408,103 @@ const PersonelGuncelle = () => {
 									</Col>
 								</Row>
 								<Row>
-									<Col md={4}>
+									<Col md={12}>
 										<Form.Group className='mb-3'>
-											<Form.Label>Telefon Numarası</Form.Label>
-											<Form.Control
-												type='text'
-												name='telefonNumarasi'
-												value={formData.telefonNumarasi}
-												onChange={handleChange}
-											/>
+											<div className='d-flex justify-content-between align-items-center mb-2'>
+												<Form.Label className='fw-bold mb-0'>Telefon Numaraları</Form.Label>
+												<Button
+													variant='outline-primary'
+													size='sm'
+													onClick={() =>
+														addArrayItem('telefonNumaralari', {
+															tip: 'Şahsi',
+															numara: '',
+															kisaKod: '',
+														})
+													}>
+													<FaPlus /> Numara Ekle
+												</Button>
+											</div>
+											{formData.telefonNumaralari?.map((tel, idx) => (
+												<Row
+													key={idx}
+													className='mb-2 align-items-start bg-white border rounded p-2 mx-0'>
+													<Col md={3}>
+														<Form.Group>
+															<Form.Label className='small'>Tip</Form.Label>
+															<Form.Select
+																size='sm'
+																value={tel.tip}
+																onChange={(e) =>
+																	handleArrayChange(
+																		'telefonNumaralari',
+																		idx,
+																		'tip',
+																		e.target.value,
+																	)
+																}>
+																<option value='Şahsi'>Şahsi</option>
+																<option value='İş'>İş</option>
+															</Form.Select>
+														</Form.Group>
+													</Col>
+													<Col md={5}>
+														<Form.Group>
+															<Form.Label className='small'>Numara</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																placeholder='05xx...'
+																required
+																value={tel.numara}
+																onChange={(e) =>
+																	handleArrayChange(
+																		'telefonNumaralari',
+																		idx,
+																		'numara',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+													{tel.tip === 'İş' && (
+														<Col md={3}>
+															<Form.Group>
+																<Form.Label className='small'>
+																	Kısa Kod (Zorunlu Değil)
+																</Form.Label>
+																<Form.Control
+																	type='text'
+																	size='sm'
+																	placeholder='1234'
+																	value={tel.kisaKod}
+																	onChange={(e) =>
+																		handleArrayChange(
+																			'telefonNumaralari',
+																			idx,
+																			'kisaKod',
+																			e.target.value,
+																		)
+																	}
+																/>
+															</Form.Group>
+														</Col>
+													)}
+													<Col md={tel.tip === 'İş' ? 1 : 4} className='text-end mt-4'>
+														{formData.telefonNumaralari.length > 1 && (
+															<Button
+																variant='outline-danger'
+																size='sm'
+																onClick={() =>
+																	removeArrayItem('telefonNumaralari', idx)
+																}>
+																<FaTrash />
+															</Button>
+														)}
+													</Col>
+												</Row>
+											))}
 										</Form.Group>
 									</Col>
 									<Col md={8}>
@@ -629,11 +788,17 @@ const PersonelGuncelle = () => {
 												tipi: 'Sözlü Uyarı',
 												nedeni: '',
 												tarihi: '',
+												dosyaYolu: '',
 											})
 										}>
 										<FaPlus /> Uyarı Ekle
 									</Button>
 								</div>
+								{formData.ihtarVeUyarilar.length === 0 && (
+									<Alert variant='secondary' className='py-2'>
+										Henüz bir ihtar veya uyarı kaydı bulunmuyor.
+									</Alert>
+								)}
 								{formData.ihtarVeUyarilar.map((uyari, idx) => (
 									<Card key={idx} className='mb-3 border-warning'>
 										<Card.Body className='py-2'>
@@ -702,9 +867,247 @@ const PersonelGuncelle = () => {
 													</Button>
 												</Col>
 											</Row>
+											<Row className='align-items-end mt-2'>
+												<Col md={11}>
+													<Form.Group>
+														<Form.Label className='small fw-bold'>
+															Uyarı/İhtar Belgesi (Opsiyonel)
+														</Form.Label>
+														<div className='d-flex align-items-center bg-white p-1 border rounded'>
+															{uyari.dosyaYolu ? (
+																<>
+																	<div className='flex-grow-1 text-truncate small text-success px-2'>
+																		<FaFileAlt className='me-1' />{' '}
+																		{uyari.dosyaYolu.split('/').pop()}
+																	</div>
+																	<a
+																		href={`http://localhost:5000/${uyari.dosyaYolu}`}
+																		target='_blank'
+																		rel='noreferrer'
+																		className='btn btn-xs btn-outline-primary me-1'>
+																		Gör
+																	</a>
+																	<Button
+																		variant='outline-danger'
+																		size='sm'
+																		className='btn-xs'
+																		onClick={() =>
+																			handleArrayChange(
+																				'ihtarVeUyarilar',
+																				idx,
+																				'dosyaYolu',
+																				'',
+																			)
+																		}>
+																		<FaTrash size={10} />
+																	</Button>
+																</>
+															) : (
+																<Form.Control
+																	type='file'
+																	size='sm'
+																	className='border-0 shadow-none bg-transparent'
+																	onChange={(e) =>
+																		handleFileUpload(
+																			'ihtarVeUyarilar',
+																			idx,
+																			'dosyaYolu',
+																			e.target.files[0],
+																			'ihtar',
+																		)
+																	}
+																/>
+															)}
+														</div>
+													</Form.Group>
+												</Col>
+											</Row>
 										</Card.Body>
 									</Card>
 								))}
+
+								<hr className='my-4' />
+								<div className='d-flex justify-content-between align-items-center mb-3'>
+									<h5 className='mb-0'>Kayıtlı Görev Geçişleri</h5>
+									<Button variant='outline-primary' size='sm' onClick={handleGorevDegisikligiEkle}>
+										<FaPlus /> Görev Değişikliği Ekle
+									</Button>
+								</div>
+								{(!formData.gorevDegisiklikleri || formData.gorevDegisiklikleri.length === 0) && (
+									<Alert variant='secondary' className='py-2'>
+										Henüz bir görev geçişi kaydedilmemiş.
+									</Alert>
+								)}
+								{formData.gorevDegisiklikleri &&
+									formData.gorevDegisiklikleri.map((gorev, idx) => (
+										<Card
+											key={idx}
+											className='mb-3 border-info-subtle bg-light bg-opacity-10 shadow-sm'>
+											<Card.Body className='p-3'>
+												<div className='d-flex justify-content-between align-items-center'>
+													<h6 className='text-info fw-bold mb-0 small uppercase'>
+														Geçiş Değişikliği #{idx + 1}
+													</h6>
+													<Button
+														variant='outline-danger'
+														size='sm'
+														style={{ padding: '2px 8px' }}
+														onClick={() => removeArrayItem('gorevDegisiklikleri', idx)}>
+														<FaTrash size={12} />
+													</Button>
+												</div>
+												<Row className='mt-2 g-2'>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='text-muted'
+																style={{ fontSize: '0.75rem' }}>
+																Önceki Ünvan
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.oncekiUnvan || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'oncekiUnvan',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='text-muted'
+																style={{ fontSize: '0.75rem' }}>
+																Önceki Şirket
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.oncekiSirket || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'oncekiSirket',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='text-muted'
+																style={{ fontSize: '0.75rem' }}>
+																Önceki Şube
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.oncekiSube || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'oncekiSube',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+												</Row>
+												<Row className='mt-1 g-2'>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='fw-bold'
+																style={{ fontSize: '0.75rem' }}>
+																Yeni Ünvan
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.yeniUnvan || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'yeniUnvan',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='fw-bold'
+																style={{ fontSize: '0.75rem' }}>
+																Yeni Şirket
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.yeniSirket || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'yeniSirket',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+													<Col md={4}>
+														<Form.Group>
+															<Form.Label
+																className='fw-bold'
+																style={{ fontSize: '0.75rem' }}>
+																Yeni Şube
+															</Form.Label>
+															<Form.Control
+																type='text'
+																size='sm'
+																value={gorev.yeniSube || ''}
+																onChange={(e) =>
+																	handleGorevDegisikligiChange(
+																		idx,
+																		'yeniSube',
+																		e.target.value,
+																	)
+																}
+															/>
+														</Form.Group>
+													</Col>
+												</Row>
+												<div className='mt-2 text-end'>
+													<span
+														className='badge bg-secondary-subtle text-dark border'
+														style={{ fontSize: '0.7rem' }}>
+														Tarih:{' '}
+														<input
+															type='date'
+															className='border-0 bg-transparent'
+															value={gorev.degisiklikTarihi || ''}
+															onChange={(e) =>
+																handleGorevDegisikligiChange(
+																	idx,
+																	'degisiklikTarihi',
+																	e.target.value,
+																)
+															}
+														/>
+													</span>
+												</div>
+											</Card.Body>
+										</Card>
+									))}
 							</Tab>
 
 							{/* 3. SEKMESİ: EĞİTİM BİLGİLERİ */}
@@ -989,78 +1392,197 @@ const PersonelGuncelle = () => {
 								))}
 
 								<hr className='my-4' />
-								<h5 className='mb-3'>Acil Durumlarda Ulaşılabilecek Yakını</h5>
-								<Row>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>Ad</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.ad'
-												value={formData.yakini.ad}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>Soyad</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.soyad'
-												value={formData.yakini.soyad}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>Telefon</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.telefonNumarasi'
-												value={formData.yakini.telefonNumarasi}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-								</Row>
-								<h6>Yakını Adresi</h6>
-								<Row>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>İl</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.adres.il'
-												value={formData.yakini.adres.il}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>İlçe</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.adres.ilce'
-												value={formData.yakini.adres.ilce}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-									<Col md={4}>
-										<Form.Group className='mb-3'>
-											<Form.Label>Sokak</Form.Label>
-											<Form.Control
-												type='text'
-												name='yakini.adres.sokak'
-												value={formData.yakini.adres.sokak}
-												onChange={handleChange}
-											/>
-										</Form.Group>
-									</Col>
-								</Row>
+								<div className='d-flex justify-content-between align-items-center mb-3'>
+									<h5 className='mb-0'>Acil Durumlarda Ulaşılabilecek Yakınlar</h5>
+									<Button
+										variant='outline-primary'
+										size='sm'
+										onClick={() =>
+											addArrayItem('yakini', {
+												ad: '',
+												soyad: '',
+												telefonNumarasi: '',
+												adres: {
+													il: '',
+													ilce: '',
+													sokak: '',
+													disKapiNo: '',
+													icKapiNo: '',
+													numarataj: '',
+												},
+											})
+										}>
+										<FaPlus /> Acil Kişi Ekle
+									</Button>
+								</div>
+								{formData.yakini.length === 0 && (
+									<Alert variant='secondary' className='py-2'>
+										Kayıtlı acil durum kişisi bulunmuyor.
+									</Alert>
+								)}
+								{formData.yakini.map((kisi, idx) => (
+									<div
+										key={idx}
+										className='mb-4 p-3 border border-2 border-danger rounded position-relative bg-light'>
+										<Button
+											variant='danger'
+											size='sm'
+											className='position-absolute top-0 end-0 m-2'
+											onClick={() => removeArrayItem('yakini', idx)}>
+											<FaTrash />
+										</Button>
+										<Row>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Ad</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.ad || ''}
+														onChange={(e) =>
+															handleArrayChange('yakini', idx, 'ad', e.target.value)
+														}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Soyad</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.soyad || ''}
+														onChange={(e) =>
+															handleArrayChange('yakini', idx, 'soyad', e.target.value)
+														}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Telefon</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.telefonNumarasi || ''}
+														onChange={(e) =>
+															handleArrayChange(
+																'yakini',
+																idx,
+																'telefonNumarasi',
+																e.target.value,
+															)
+														}
+													/>
+												</Form.Group>
+											</Col>
+										</Row>
+										<h6 className='mt-2 text-muted'>Yakını Adresi</h6>
+										<Row>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>İl</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.il || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																il: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>İlçe</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.ilce || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																ilce: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Sokak</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.sokak || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																sokak: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+										</Row>
+										<Row>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Dış Kapı No</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.disKapiNo || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																disKapiNo: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>İç Kapı No</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.icKapiNo || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																icKapiNo: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+											<Col md={4}>
+												<Form.Group className='mb-3'>
+													<Form.Label>Numarataj</Form.Label>
+													<Form.Control
+														type='text'
+														value={kisi.adres?.numarataj || ''}
+														onChange={(e) => {
+															const newYakini = [...formData.yakini];
+															newYakini[idx].adres = {
+																...newYakini[idx].adres,
+																numarataj: e.target.value,
+															};
+															setFormData({ ...formData, yakini: newYakini });
+														}}
+													/>
+												</Form.Group>
+											</Col>
+										</Row>
+									</div>
+								))}
 							</Tab>
 
 							{/* 5. SEKMESİ: YETKİNLİK VE SERTİFİKALAR */}
@@ -1125,11 +1647,14 @@ const PersonelGuncelle = () => {
 									</Alert>
 								)}
 								{formData.sertifikaBilgileri.map((serti, idx) => (
-									<Row key={idx} className='mb-3 align-items-end p-3 bg-light rounded'>
+									<Row
+										key={idx}
+										className='mb-3 align-items-end p-3 bg-light rounded shadow-sm border-start border-4 border-primary'>
 										<Col md={2}>
 											<Form.Group>
-												<Form.Label>Tipi</Form.Label>
+												<Form.Label className='small fw-bold'>Eğitim Tipi</Form.Label>
 												<Form.Select
+													size='sm'
 													value={serti.egitimTipi}
 													onChange={(e) =>
 														handleArrayChange(
@@ -1146,12 +1671,13 @@ const PersonelGuncelle = () => {
 												</Form.Select>
 											</Form.Group>
 										</Col>
-										<Col md={5}>
+										<Col md={4}>
 											<Form.Group>
-												<Form.Label>Eğitim/Sertifika Adı</Form.Label>
+												<Form.Label className='small fw-bold'>Sertifika/Eğitim Adı</Form.Label>
 												<Form.Control
 													type='text'
 													required
+													size='sm'
 													value={serti.egitimAdi}
 													onChange={(e) =>
 														handleArrayChange(
@@ -1164,13 +1690,18 @@ const PersonelGuncelle = () => {
 												/>
 											</Form.Group>
 										</Col>
-										<Col md={3}>
+										<Col md={2}>
 											<Form.Group>
-												<Form.Label>Veriliş Tarihi</Form.Label>
+												<Form.Label className='small'>Veriliş Tarihi</Form.Label>
 												<Form.Control
 													type='date'
 													required
-													value={serti.sertifikaTarihi}
+													size='sm'
+													value={
+														serti.sertifikaTarihi
+															? serti.sertifikaTarihi.substring(0, 10)
+															: ''
+													}
 													onChange={(e) =>
 														handleArrayChange(
 															'sertifikaBilgileri',
@@ -1182,12 +1713,64 @@ const PersonelGuncelle = () => {
 												/>
 											</Form.Group>
 										</Col>
-										<Col md={2}>
+										<Col md={3}>
+											<Form.Group>
+												<Form.Label className='small fw-bold'>Belge/Sertifika</Form.Label>
+												<div className='d-flex align-items-center bg-white p-1 border rounded'>
+													{serti.dosyaYolu ? (
+														<>
+															<div className='flex-grow-1 text-truncate small text-primary px-2'>
+																<FaFileAlt className='me-1' />{' '}
+																{serti.dosyaYolu.split('/').pop()}
+															</div>
+															<a
+																href={`http://localhost:5000/${serti.dosyaYolu}`}
+																target='_blank'
+																rel='noreferrer'
+																className='btn btn-xs btn-outline-primary me-1'>
+																Gör
+															</a>
+															<Button
+																variant='outline-danger'
+																size='sm'
+																className='btn-xs'
+																onClick={() =>
+																	handleArrayChange(
+																		'sertifikaBilgileri',
+																		idx,
+																		'dosyaYolu',
+																		'',
+																	)
+																}>
+																<FaTrash size={10} />
+															</Button>
+														</>
+													) : (
+														<Form.Control
+															type='file'
+															size='sm'
+															className='border-0 shadow-none bg-transparent'
+															onChange={(e) =>
+																handleFileUpload(
+																	'sertifikaBilgileri',
+																	idx,
+																	'dosyaYolu',
+																	e.target.files[0],
+																	'sertifika',
+																)
+															}
+														/>
+													)}
+												</div>
+											</Form.Group>
+										</Col>
+										<Col md={1} className='text-end'>
 											<Button
 												variant='danger'
-												className='w-100'
+												size='sm'
+												style={{ marginTop: '28px' }}
 												onClick={() => removeArrayItem('sertifikaBilgileri', idx)}>
-												<FaTrash /> Sil
+												<FaTrash />
 											</Button>
 										</Col>
 									</Row>
@@ -1268,6 +1851,9 @@ const PersonelGuncelle = () => {
 										onClick={() =>
 											addArrayItem('kkdZimmetleri', {
 												kkdTipi: '',
+												marka: '',
+												model: '',
+												seriNo: '',
 												verilisTarihi: '',
 												iadeTarihi: '',
 												dosyaYolu: '',
@@ -1282,13 +1868,17 @@ const PersonelGuncelle = () => {
 									</Alert>
 								)}
 								{formData.kkdZimmetleri.map((zimmet, idx) => (
-									<Row key={idx} className='mb-3 align-items-end p-3 bg-light rounded'>
-										<Col md={3}>
+									<Row
+										key={idx}
+										className='mb-3 align-items-end p-3 bg-light rounded shadow-sm border-start border-4 border-info'>
+										<Col md={2}>
 											<Form.Group>
-												<Form.Label>KKD Tipi (Baret, Laptop vb.)</Form.Label>
+												<Form.Label className='small fw-bold'>Ekipman Tipi</Form.Label>
 												<Form.Control
 													type='text'
 													required
+													size='sm'
+													placeholder='Baret, Laptop vb.'
 													value={zimmet.kkdTipi || ''}
 													onChange={(e) =>
 														handleArrayChange(
@@ -1301,13 +1891,62 @@ const PersonelGuncelle = () => {
 												/>
 											</Form.Group>
 										</Col>
-										<Col md={3}>
+										<Col md={2}>
 											<Form.Group>
-												<Form.Label>Veriliş Tarihi</Form.Label>
+												<Form.Label className='small'>Marka</Form.Label>
+												<Form.Control
+													type='text'
+													size='sm'
+													value={zimmet.marka || ''}
+													onChange={(e) =>
+														handleArrayChange('kkdZimmetleri', idx, 'marka', e.target.value)
+													}
+												/>
+											</Form.Group>
+										</Col>
+										<Col md={2}>
+											<Form.Group>
+												<Form.Label className='small'>Model</Form.Label>
+												<Form.Control
+													type='text'
+													size='sm'
+													value={zimmet.model || ''}
+													onChange={(e) =>
+														handleArrayChange('kkdZimmetleri', idx, 'model', e.target.value)
+													}
+												/>
+											</Form.Group>
+										</Col>
+										<Col md={2}>
+											<Form.Group>
+												<Form.Label className='small'>Seri No</Form.Label>
+												<Form.Control
+													type='text'
+													size='sm'
+													value={zimmet.seriNo || ''}
+													onChange={(e) =>
+														handleArrayChange(
+															'kkdZimmetleri',
+															idx,
+															'seriNo',
+															e.target.value,
+														)
+													}
+												/>
+											</Form.Group>
+										</Col>
+										<Col md={2}>
+											<Form.Group>
+												<Form.Label className='small'>Veriliş Tarihi</Form.Label>
 												<Form.Control
 													type='date'
 													required
-													value={zimmet.verilisTarihi || ''}
+													size='sm'
+													value={
+														zimmet.verilisTarihi
+															? zimmet.verilisTarihi.substring(0, 10)
+															: ''
+													}
 													onChange={(e) =>
 														handleArrayChange(
 															'kkdZimmetleri',
@@ -1321,10 +1960,11 @@ const PersonelGuncelle = () => {
 										</Col>
 										<Col md={2}>
 											<Form.Group>
-												<Form.Label>İade Tarihi</Form.Label>
+												<Form.Label className='small'>İade Tarihi</Form.Label>
 												<Form.Control
 													type='date'
-													value={zimmet.iadeTarihi || ''}
+													size='sm'
+													value={zimmet.iadeTarihi ? zimmet.iadeTarihi.substring(0, 10) : ''}
 													onChange={(e) =>
 														handleArrayChange(
 															'kkdZimmetleri',
@@ -1336,28 +1976,64 @@ const PersonelGuncelle = () => {
 												/>
 											</Form.Group>
 										</Col>
-										<Col md={3}>
+										<Col md={4} className='mt-2'>
 											<Form.Group>
-												<Form.Label>Zimmet Dosya Yolu</Form.Label>
-												<Form.Control
-													type='text'
-													placeholder='Dosya linki/yolu'
-													value={zimmet.dosyaYolu || ''}
-													onChange={(e) =>
-														handleArrayChange(
-															'kkdZimmetleri',
-															idx,
-															'dosyaYolu',
-															e.target.value,
-														)
-													}
-												/>
+												<Form.Label className='small fw-bold'>
+													Zimmet Tutanağı / Belge
+												</Form.Label>
+												<div className='d-flex align-items-center bg-white p-1 border rounded'>
+													{zimmet.dosyaYolu ? (
+														<>
+															<div className='flex-grow-1 text-truncate small text-success px-2'>
+																<FaFileAlt className='me-1' />{' '}
+																{zimmet.dosyaYolu.split('/').pop()}
+															</div>
+															<a
+																href={`http://localhost:5000/${zimmet.dosyaYolu}`}
+																target='_blank'
+																rel='noreferrer'
+																className='btn btn-xs btn-outline-primary me-1'>
+																Gör
+															</a>
+															<Button
+																variant='outline-danger'
+																size='sm'
+																className='btn-xs'
+																onClick={() =>
+																	handleArrayChange(
+																		'kkdZimmetleri',
+																		idx,
+																		'dosyaYolu',
+																		'',
+																	)
+																}>
+																<FaTrash size={10} />
+															</Button>
+														</>
+													) : (
+														<Form.Control
+															type='file'
+															size='sm'
+															className='border-0 shadow-none bg-transparent'
+															onChange={(e) =>
+																handleFileUpload(
+																	'kkdZimmetleri',
+																	idx,
+																	'dosyaYolu',
+																	e.target.files[0],
+																	'zimmet',
+																)
+															}
+														/>
+													)}
+												</div>
 											</Form.Group>
 										</Col>
-										<Col md={1}>
+										<Col md={1} className='text-end'>
 											<Button
 												variant='danger'
-												className='w-100'
+												size='sm'
+												style={{ marginTop: '28px' }}
 												onClick={() => removeArrayItem('kkdZimmetleri', idx)}>
 												<FaTrash />
 											</Button>
@@ -1376,6 +2052,106 @@ const PersonelGuncelle = () => {
 							</Button>
 						</div>
 					</Form>
+
+					<div className='mt-5'>
+						<Accordion defaultActiveKey='0' className='shadow-sm'>
+							<Accordion.Item eventKey='0'>
+								<Accordion.Header className='bg-light'>
+									<span className='fw-bold'>
+										<FaTrash className='me-2 text-danger' /> Sistem Değişiklik Günlüğü (Audit Log)
+									</span>
+								</Accordion.Header>
+								<Accordion.Body>
+									{!formData.degisiklikGecmisi || formData.degisiklikGecmisi.length === 0 ? (
+										<Alert variant='secondary'>
+											Sistemde henüz kaydedilmiş bir log bulunmuyor.
+										</Alert>
+									) : (
+										<div className='log-groups'>
+											{Object.entries(
+												[...formData.degisiklikGecmisi].reverse().reduce((groups, log) => {
+													const date = new Date(log.degisiklikTarihi).toLocaleDateString(
+														'tr-TR',
+													);
+													if (!groups[date]) groups[date] = [];
+													groups[date].push(log);
+													return groups;
+												}, {}),
+											).map(([date, logs], gIdx) => (
+												<div key={date} className='mb-3 border rounded overflow-hidden'>
+													<div
+														className='bg-secondary bg-opacity-10 p-2 d-flex justify-content-between align-items-center cursor-pointer'
+														onClick={() => {
+															const el = document.getElementById(`log-group-${gIdx}`);
+															el.classList.toggle('d-none');
+														}}
+														style={{ cursor: 'pointer' }}>
+														<span className='fw-bold text-secondary mb-0'>
+															<FaPlus size={12} className='me-2' /> {date} Tarihli
+															Değişiklikler
+														</span>
+														<span className='badge bg-secondary rounded-pill'>
+															{logs.length} İşlem
+														</span>
+													</div>
+													<div id={`log-group-${gIdx}`} className='p-0'>
+														<div className='table-responsive'>
+															<table
+																className='table table-hover table-sm mb-0 border-top'
+																style={{ fontSize: '0.8rem' }}>
+																<thead className='table-light'>
+																	<tr>
+																		<th style={{ width: '80px' }}>Saat</th>
+																		<th>Alan</th>
+																		<th>Eski Durum</th>
+																		<th>Yeni Durum</th>
+																	</tr>
+																</thead>
+																<tbody>
+																	{logs.map((log, i) => (
+																		<tr key={i}>
+																			<td>
+																				{new Date(
+																					log.degisiklikTarihi,
+																				).toLocaleTimeString('tr-TR', {
+																					hour: '2-digit',
+																					minute: '2-digit',
+																				})}
+																			</td>
+																			<td>
+																				<code>{log.degistirilenAlan}</code>
+																			</td>
+																			<td
+																				className='text-muted text-break'
+																				style={{
+																					maxWidth: '200px',
+																					textDecoration: 'line-through',
+																				}}>
+																				{typeof log.eskiDeger === 'object'
+																					? JSON.stringify(log.eskiDeger)
+																					: String(log.eskiDeger)}
+																			</td>
+																			<td
+																				className='text-success fw-bold text-break'
+																				style={{ maxWidth: '240px' }}>
+																				{typeof log.yeniDeger === 'object'
+																					? JSON.stringify(log.yeniDeger)
+																					: String(log.yeniDeger)}
+																			</td>
+																		</tr>
+																	))}
+																</tbody>
+															</table>
+														</div>
+													</div>
+												</div>
+											))}
+										</div>
+									)}
+								</Accordion.Body>
+							</Accordion.Item>
+						</Accordion>
+					</div>
 				</Card.Body>
 			</Card>
 		</Container>

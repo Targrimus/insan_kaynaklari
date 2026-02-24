@@ -16,7 +16,7 @@ const AppNavbar = () => {
 	if (!user) return null; // Kullanıcı giriş yapmadıysa navbarı gösterme
 
 	return (
-		<Navbar bg='primary' variant='dark' expand='lg' className='mb-4 shadow-sm'>
+		<Navbar expand='lg' className='mb-4 sticky-top'>
 			<Container fluid className='px-4'>
 				<Navbar.Brand as={Link} to='/' className='fw-bold'>
 					IK Yönetimi PRO
@@ -32,12 +32,12 @@ const AppNavbar = () => {
 						</Nav.Link>
 					</Nav>
 					<Nav className='align-items-center'>
-						<Navbar.Text className='text-white me-3 d-flex align-items-center gap-2'>
-							<FaUserCircle size={20} />
+						<Navbar.Text className='text-dark fw-medium me-3 d-flex align-items-center gap-2'>
+							<FaUserCircle size={20} className='text-secondary' />
 							{user.adSoyad || 'Kullanıcı'} ({user.rol})
 						</Navbar.Text>
 						<Button
-							variant='outline-light'
+							variant='outline-danger'
 							size='sm'
 							onClick={handleLogout}
 							className='d-flex align-items-center gap-2'>

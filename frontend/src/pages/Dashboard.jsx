@@ -45,7 +45,7 @@ const Dashboard = () => {
 	}
 
 	return (
-		<Container fluid>
+		<Container fluid className='px-4 py-4'>
 			<Card className='shadow-sm border-0'>
 				<Card.Header className='bg-white d-flex justify-content-between align-items-center py-3'>
 					<h4 className='mb-0 fw-bold text-primary'>Personel Listesi</h4>

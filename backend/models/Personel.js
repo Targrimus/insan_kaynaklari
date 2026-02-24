@@ -30,7 +30,13 @@ const personelSema = new Schema(
 			enum: ['A Rh+', 'A Rh-', 'B Rh+', 'B Rh-', 'AB Rh+', 'AB Rh-', '0 Rh+', '0 Rh-', 'Bilinmiyor'],
 			default: 'Bilinmiyor',
 		},
-		telefonNumarasi: { type: String, trim: true },
+		telefonNumaralari: [
+			{
+				tip: { type: String, enum: ['Şahsi', 'İş'], default: 'Şahsi' },
+				numara: { type: String, trim: true, required: true },
+				kisaKod: { type: String, trim: true }, // İş telefonu için zorunlu değil
+			},
+		],
 		epostaAdresleri: [
 			{
 				type: String,
@@ -96,6 +102,7 @@ const personelSema = new Schema(
 				},
 				nedeni: { type: String, trim: true, required: true },
 				tarihi: { type: Date, required: true },
+				dosyaYolu: { type: String, trim: true }, // Uyarı/İhtar belgesi dosya yolu
 			},
 		],
 
@@ -119,12 +126,14 @@ const personelSema = new Schema(
 		],
 
 		// Acil Durum / Yakını Bilgileri
-		yakini: {
-			ad: { type: String, trim: true },
-			soyad: { type: String, trim: true },
-			telefonNumarasi: { type: String, trim: true },
-			adres: { type: adresSema },
-		},
+		yakini: [
+			{
+				ad: { type: String, trim: true },
+				soyad: { type: String, trim: true },
+				telefonNumarasi: { type: String, trim: true },
+				adres: { type: adresSema },
+			},
+		],
 
 		// Yetkinlikler ve Belgeler
 		ehliyetDurumu: {
@@ -159,9 +168,35 @@ const personelSema = new Schema(
 		kkdZimmetleri: [
 			{
 				kkdTipi: { type: String, trim: true, required: true }, // Örn: Baret, Yelek, Laptop, Telefon
+				marka: { type: String, trim: true },
+				model: { type: String, trim: true },
+				seriNo: { type: String, trim: true },
 				verilisTarihi: { type: Date, required: true }, // Zimmet/Teslim tarihi
 				iadeTarihi: { type: Date }, // İşten çıkışta veya eskidiğinde iade tarihi
 				dosyaYolu: { type: String, trim: true }, // Zimmet belgesi/formu vb. dosya yolu
+			},
+		],
+		// Görev Değişiklikleri Bilgileri
+		gorevDegisiklikleri: [
+			{
+				oncekiUnvan: { type: String, trim: true },
+				oncekiSirket: { type: String, trim: true },
+				oncekiSube: { type: String, trim: true },
+				yeniUnvan: { type: String, trim: true },
+				yeniSirket: { type: String, trim: true },
+				yeniSube: { type: String, trim: true },
+				degisiklikTarihi: { type: Date, required: true },
+			},
+		],
+
+		// Sistemde yapılan genel değişikliklerin (Log) geçmişi
+		degisiklikGecmisi: [
+			{
+				degistirilenAlan: { type: String, required: true },
+				eskiDeger: mongoose.Schema.Types.Mixed,
+				yeniDeger: mongoose.Schema.Types.Mixed,
+				degisiklikTarihi: { type: Date, default: Date.now },
+				degistirenKullanici: { type: String },
 			},
 		],
 	},
