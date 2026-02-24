@@ -1,0 +1,5 @@
+/* index.css temizlendi - Bootstrap reboot ve container özellikleri devrede */
+
+body {
+    background-color: #f8f9fa; /* Hafif gri bir arka plan (Bootstrap bg-light) */
+}

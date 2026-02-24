@@ -1,0 +1,54 @@
+{
+    "Ad": "",
+    "Soyad": "",
+    "Cinsiyet": "",
+    "Doğum Tarihi": "",
+    "Telefon Numarası": "",
+    "Adres": {
+        "İl": "",
+        "ilçe": "",
+        "Sokak": "",
+        "Dış Kapı No": "",
+        "İç Kapı No": "",
+        "Numarataj": ""
+    },
+    "Medeni Hal": "",
+    "İşe Başlama Tarihi": "",
+    "Ünvanı": "",
+    "Görev Aldığı Şirket": "",
+    "Görev Aldığı Şube": "",
+    "İşten Çıkış Tarihi": "",
+    "sicil no": "",
+    "engelli mi": "",
+    "Eğitim Bilgileri": {
+        "Mezuniyet Durumu": "",
+        "en son mezun olunan okul adı": "",
+        "en son mezun olunan bölüm adı": "",
+        "mezuniyet notu tipi": "",
+        "mezuniyet notu"
+    },
+    "Yakini": {
+        "Ad": "",
+        "Soyad": "",
+        "Telefon Numarası": "",
+        "Adres": {
+            "İl": "",
+            "ilçe": "",
+            "Sokak": "",
+            "Dış Kapı No": "",
+            "İç Kapı No": "",
+            "Numarataj": ""
+        }
+    },
+    "Ehliyet Durumu": {
+        "Ehliyet Sınıfı": [],
+        "SRC Belgesi": [],
+        "Psikoteknik Belgesi": []
+    },
+    "Sertifika Bilgileri": {
+        "ISG": [],
+        "MYK": [],
+        "ILKYARDIM": [],
+        "DIGER": []
+    }
+}
